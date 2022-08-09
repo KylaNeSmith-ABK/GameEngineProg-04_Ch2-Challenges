@@ -1,6 +1,8 @@
 #include <enet/enet.h>
 
 #include <iostream>
+#include <string>
+#include <thread>
 using namespace std;
 
 ENetAddress address;
@@ -35,6 +37,44 @@ bool CreateClient()
     return client != nullptr;
 }
 
+void SendPacket(ENetHost* sender, string message)
+{
+    /* Create a reliable packet of size 7 containing "packet\0" */
+    ENetPacket* packet = enet_packet_create(message.c_str()/* + "hello"*/,
+        strlen(message.c_str()) + 1,
+        ENET_PACKET_FLAG_RELIABLE);
+    /* Extend the packet so and append the string "foo", so it now */
+    /* contains "packetfoo\0"                                      */
+    //enet_packet_resize(packet, strlen("packetfoo") + 1);
+    //strcpy(&packet->data[strlen("packet")], "foo");
+    /* Send the packet to the peer over channel id 0. */
+    /* One could also broadcast the packet by         */
+    enet_host_broadcast(sender, 0, packet);
+    //enet_peer_send(event.peer, 0, packet);
+
+    /* One could just use enet_host_service() instead. */
+    //enet_host_service();
+    enet_host_flush(sender);
+}
+
+void ListenInput(string userName, ENetHost* sender)
+{
+    while (1)
+    {
+        string Input;
+
+        cout << "Enter message: ";
+
+        getline(cin, Input);
+
+        if (!Input.empty())
+        {
+            string WholeMessage = userName + ": " + Input;
+            SendPacket(sender, WholeMessage);
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (enet_initialize() != 0)
@@ -51,6 +91,10 @@ int main(int argc, char** argv)
     cout << "2) Create Client " << endl;
     int UserInput;
     cin >> UserInput;
+
+    string ServerUserName;
+    string ClientUserName;
+
     if (UserInput == 1)
     {
         if (!CreateServer())
@@ -60,8 +104,32 @@ int main(int argc, char** argv)
             exit(EXIT_FAILURE);
         }
 
+        cout << "Enter name: ";
+        while (ServerUserName.empty())
+        {
+            getline(cin, ServerUserName);
+        }
+
+        thread ServerThread(ListenInput, ServerUserName, server);
+
         while (1)
         {
+            
+
+            /*string ServerUserMessage;
+
+            cout << "Enter message: ";
+
+            getline(cin, ServerUserMessage);
+
+            string ServerWholeMessage = ServerUserName + ": " + ServerUserMessage;*/
+
+            /*if (!ServerUserMessage.empty())
+            {
+                string ServerWholeMessage = ServerUserName + ": " + ServerUserMessage;
+                SendPacket(server, ServerWholeMessage);
+            }*/
+
             ENetEvent event;
             /* Wait up to 1000 milliseconds for an event. */
             while (enet_host_service(server, &event, 1000) > 0)
@@ -77,22 +145,23 @@ int main(int argc, char** argv)
                     event.peer->data = (void*)("Client information");
 
                     {
-                        /* Create a reliable packet of size 7 containing "packet\0" */
-                        ENetPacket* packet = enet_packet_create("hello",
-                            strlen("hello") + 1,
-                            ENET_PACKET_FLAG_RELIABLE);
-                        /* Extend the packet so and append the string "foo", so it now */
-                        /* contains "packetfoo\0"                                      */
-                        //enet_packet_resize(packet, strlen("packetfoo") + 1);
-                        //strcpy(&packet->data[strlen("packet")], "foo");
-                        /* Send the packet to the peer over channel id 0. */
-                        /* One could also broadcast the packet by         */
-                        enet_host_broadcast(server, 0, packet);
-                        //enet_peer_send(event.peer, 0, packet);
+                        //SendPacket(server, ServerWholeMessage);
+                        ///* Create a reliable packet of size 7 containing "packet\0" */
+                        //ENetPacket* packet = enet_packet_create(ServerWholeMessage.c_str()/* + "hello"*/,
+                        //    strlen(ServerWholeMessage.c_str()) + 1,
+                        //    ENET_PACKET_FLAG_RELIABLE);
+                        ///* Extend the packet so and append the string "foo", so it now */
+                        ///* contains "packetfoo\0"                                      */
+                        ////enet_packet_resize(packet, strlen("packetfoo") + 1);
+                        ////strcpy(&packet->data[strlen("packet")], "foo");
+                        ///* Send the packet to the peer over channel id 0. */
+                        ///* One could also broadcast the packet by         */
+                        //enet_host_broadcast(server, 0, packet);
+                        ////enet_peer_send(event.peer, 0, packet);
 
-                        /* One could just use enet_host_service() instead. */
-                        //enet_host_service();
-                        enet_host_flush(server);
+                        ///* One could just use enet_host_service() instead. */
+                        ////enet_host_service();
+                        //enet_host_flush(server);
                     }
                     break;
                 case ENET_EVENT_TYPE_RECEIVE:
@@ -108,12 +177,14 @@ int main(int argc, char** argv)
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
-                    cout << (char*)event.peer->data << "disconnected." << endl;
+                    cout << (char*)event.peer->data << " disconnected." << endl;
                     /* Reset the peer's client information. */
                     event.peer->data = NULL;
                 }
             }
         }
+
+        ServerThread.join();
 
     }
     else if (UserInput == 2)
@@ -154,8 +225,30 @@ int main(int argc, char** argv)
             cout << "Connection to 127.0.0.1:1234 failed." << endl;
         }
 
+        cout << "Enter name: ";
+        while (ClientUserName.empty())
+        {
+            getline(cin, ClientUserName);
+        }
+
+        thread ClientThread(ListenInput, ClientUserName, client);
+
         while (1)
         {
+            /*string ClientUserMessage;
+
+            cout << "Enter message: ";
+
+            getline(cin, ClientUserMessage);
+
+            string ClientWholeMessage = ClientUserName + ": " + ClientUserMessage;*/
+
+            /*if (!ClientUserMessage.empty())
+            {
+                string ClientWholeMessage = ClientUserName + ": " + ClientUserMessage;
+                SendPacket(server, ClientWholeMessage);
+            }*/
+
             ENetEvent event;
             /* Wait up to 1000 milliseconds for an event. */
             while (enet_host_service(client, &event, 1000) > 0)
@@ -171,21 +264,24 @@ int main(int argc, char** argv)
                     enet_packet_destroy(event.packet);
 
                     {
-                        /* Create a reliable packet of size 7 containing "packet\0" */
-                        ENetPacket* packet = enet_packet_create("hi",
-                            strlen("hi") + 1,
-                            ENET_PACKET_FLAG_RELIABLE);
+                        //SendPacket(client, ClientWholeMessage);
+                        ///* Create a reliable packet of size 7 containing "packet\0" */
+                        //ENetPacket* packet = enet_packet_create(ClientWholeMessage.c_str(),
+                        //    strlen(ClientWholeMessage.c_str()) + 1,
+                        //    ENET_PACKET_FLAG_RELIABLE);
 
-                        enet_host_broadcast(client, 0, packet);
-                        //enet_peer_send(event.peer, 0, packet);
+                        //enet_host_broadcast(client, 0, packet);
+                        ////enet_peer_send(event.peer, 0, packet);
 
-                        /* One could just use enet_host_service() instead. */
-                        //enet_host_service();
-                        enet_host_flush(client);
+                        ///* One could just use enet_host_service() instead. */
+                        ////enet_host_service();
+                        //enet_host_flush(client);
                     }
                 }
             }
         }
+
+        ClientThread.join();
     }
     else
     {
