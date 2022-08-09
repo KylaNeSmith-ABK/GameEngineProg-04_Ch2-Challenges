@@ -9,6 +9,21 @@ ENetAddress address;
 ENetHost* server = nullptr;
 ENetHost* client = nullptr;
 
+
+bool InitializeENet()
+{
+    if (enet_initialize() != 0)
+    {
+        fprintf(stderr, "An error occurred while initializing ENet.\n");
+        cout << "An error occurred while initializing ENet." << endl;
+        return EXIT_FAILURE;
+    }
+
+    atexit(enet_deinitialize);
+
+    return true;
+}
+
 bool CreateServer()
 {
     /* Bind the server to the default localhost.     */
@@ -57,19 +72,20 @@ void SendPacket(ENetHost* sender, string message)
     enet_host_flush(sender);
 }
 
-void ListenInput(string userName, ENetHost* sender)
+void ListenForInput(string userName, ENetHost* sender)
 {
     while (1)
     {
         string Input;
 
-        cout << "Enter message: ";
+        /*cout << userName << ": ";*/
 
         getline(cin, Input);
 
         if (!Input.empty())
         {
-            string WholeMessage = userName + ": " + Input;
+            cout << "\x1b[1A\r" << userName << ": " << Input << endl;
+            string WholeMessage = "" + userName + ": " + Input;
             SendPacket(sender, WholeMessage);
         }
     }
@@ -77,15 +93,8 @@ void ListenInput(string userName, ENetHost* sender)
 
 int main(int argc, char** argv)
 {
-    if (enet_initialize() != 0)
-    {
-        fprintf(stderr, "An error occurred while initializing ENet.\n");
-        cout << "An error occurred while initializing ENet." << endl;
-        return EXIT_FAILURE;
-    }
-    atexit(enet_deinitialize);
-
-
+    // Initialize ENet
+    InitializeENet();
 
     cout << "1) Create Server " << endl;
     cout << "2) Create Client " << endl;
@@ -110,7 +119,7 @@ int main(int argc, char** argv)
             getline(cin, ServerUserName);
         }
 
-        thread ServerThread(ListenInput, ServerUserName, server);
+        thread ServerThread(ListenForInput, ServerUserName, server);
 
         while (1)
         {
@@ -165,10 +174,11 @@ int main(int argc, char** argv)
                     }
                     break;
                 case ENET_EVENT_TYPE_RECEIVE:
-                    cout << "A packet of length "
+                    /*cout << "A packet of length "
                         << event.packet->dataLength << endl
                         << "containing " << (char*)event.packet->data
-                        << endl;
+                        << endl;*/
+                    cout << (char*)event.packet->data << endl;
                     //<< "was received from " << (char*)event.peer->data
                     //<< " on channel " << event.channelID << endl;
                 /* Clean up the packet now that we're done using it. */
@@ -231,7 +241,7 @@ int main(int argc, char** argv)
             getline(cin, ClientUserName);
         }
 
-        thread ClientThread(ListenInput, ClientUserName, client);
+        thread ClientThread(ListenForInput, ClientUserName, client);
 
         while (1)
         {
@@ -256,10 +266,11 @@ int main(int argc, char** argv)
                 switch (event.type)
                 {
                 case ENET_EVENT_TYPE_RECEIVE:
-                    cout << "A packet of length "
+                    /*cout << "A packet of length "
                         << event.packet->dataLength << endl
                         << "containing " << (char*)event.packet->data
-                        << endl;
+                        << endl;*/
+                    cout << (char*)event.packet->data << endl;
                     /* Clean up the packet now that we're done using it. */
                     enet_packet_destroy(event.packet);
 
