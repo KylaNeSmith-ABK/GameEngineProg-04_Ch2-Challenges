@@ -83,10 +83,10 @@ void ListenForInput(string userName, ENetHost* sender)
 
         getline(cin, Input);
 
-        if ((Input.compare("q") == 0)
-            || (Input.compare("Q") == 0)
-            || (Input.compare("quit") == 0)
-            || (Input.compare("Quit") == 0))
+        if ((Input== "q")
+            || (Input == "Q")
+            || (Input == "quit")
+            || (Input == "Quit"))
         {
             bRun = false;
             return;
